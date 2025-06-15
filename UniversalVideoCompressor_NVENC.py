@@ -37,15 +37,20 @@ console = Console()
 # —————— SONIDO DE NOTIFICACIÓN (SOLO WINDOWS): SONIDO DE EXPERIENCIA DE MINECRAFT ——————
 if sys.platform == "win32":
     import winsound
+
     def play_minecraft_xp_sound():
+        """Reproduce una melodía breve inspirada en el sonido de ganar experiencia."""
         tones = [
-            (2200, 30), (2500, 25), (2350, 30), (2600, 20)
+            (1760, 70),  # A6
+            (2093, 70),  # C7
+            (2349, 70),  # D7
+            (2637, 140)  # E7
         ]
         for freq, duration_ms in tones:
             winsound.Beep(freq, duration_ms)
 else:
     def play_minecraft_xp_sound():
-        pass # No hacer nada en otros sistemas
+        pass  # No hacer nada en otros sistemas
 
 # —————— CLASE AUXILIAR PARA UN FUEGO ARTIFICIAL (SOLO WINDOWS) ——————
 class Firework:
