@@ -1,51 +1,76 @@
-# UniversalVideoCompressor_NVENC
+# ✨ UniversalVideoCompressor_NVENC ✨
 
-## Descripción
-Este script unifica varias utilidades para la compresión, escalado y recorte de videos de forma automática, utilizando aceleración por GPU (NVENC) si está disponible. Permite:
+## 🎬 Descripción
 
-- Buscar automáticamente archivos de video en la carpeta del script.
-- Detectar resolución y colorimetría del video con ffprobe.
-- Ofrecer múltiples opciones de compresión y escalado (4K, 1080p, 720p, etc.).
-- Recorte automático o manual de barras negras.
-- Decodificación y codificación acelerada por GPU (NVENC).
-- Interfaz interactiva en consola con menús y confirmaciones.
-- Efectos visuales y sonoros al finalizar (solo en Windows).
-
-## Requisitos
-
-- Python 3.7+
-- [ffmpeg](https://ffmpeg.org/) y [ffprobe](https://ffmpeg.org/) en el PATH del sistema.
-- GPU NVIDIA compatible con NVENC (opcional, pero recomendado).
-- Paquetes Python: `rich`, `Pillow`, `numpy`
-
-Instalación de dependencias:
-```bash
-pip install rich pillow numpy
-```
-
-## Uso
-
-Coloca el script en la carpeta donde están tus videos y ejecútalo:
-
-```bash
-python UniversalVideoCompressor_NVENC.py
-```
-
-Sigue las instrucciones en pantalla para seleccionar el video, el tipo de compresión/escalado y el recorte de barras negras.
-
-## Opciones principales
-
-- Compresión pesada o ligera.
-- Escalado a 4K, 1080p, 720p, o mantener resolución.
-- Recorte automático (detección de barras negras) o manual.
-- Copia de pistas de audio y subtítulos.
-
-## Notas
-
-- El script está optimizado para Windows, pero puede funcionar en otros sistemas (sin efectos visuales/sonoros).
-- El archivo de salida se genera junto al original, con sufijos descriptivos.
+**UniversalVideoCompressor_NVENC** es un script avanzado y automatizado para la compresión, escalado y recorte de videos, aprovechando la aceleración por GPU (NVENC) si está disponible. Su objetivo es facilitar el procesamiento de videos de alta calidad con una interfaz interactiva y amigable.
 
 ---
 
-**Autor:** [Gilberto Nava Marcos]  
+### 🚀 Características principales
+
+- 🔍 **Búsqueda automática** de archivos de video en la carpeta del script y subcarpetas.
+- 🖥️ **Detección de resolución y colorimetría** usando ffprobe.
+- ⚙️ **Opciones de compresión y escalado**: 4K, 1080p, 720p, o mantener resolución original.
+- ✂️ **Recorte automático o manual** de barras negras.
+- ⚡ **Aceleración por GPU (NVENC)** para decodificación y codificación.
+- 🧑‍💻 **Interfaz interactiva** en consola con menús, confirmaciones y paneles enriquecidos (Rich).
+- 🎉 **Efectos visuales y sonoros** al finalizar (solo en Windows).
+
+---
+
+## 📦 Requisitos
+
+- Python 3.7 o superior
+- [ffmpeg](https://ffmpeg.org/) y [ffprobe](https://ffmpeg.org/) en el PATH del sistema
+- GPU NVIDIA compatible con NVENC (opcional, pero recomendado)
+- Paquetes Python: `rich`, `Pillow`, `numpy`
+
+Instala las dependencias con:
+
+```sh
+pip install rich pillow numpy
+```
+
+---
+
+## 🛠️ Uso
+
+1. Coloca el script en la carpeta donde están tus videos.
+2. Ejecuta el script desde la terminal:
+
+```sh
+python UniversalVideoCompressor_NVENC.py
+```
+
+3. Sigue las instrucciones en pantalla para:
+   - Seleccionar el video a procesar
+   - Elegir el tipo de compresión/escalado
+   - Configurar el recorte de barras negras (opcional)
+
+---
+
+## ⚙️ Opciones principales
+
+- Compresión **pesada** o **ligera**
+- Escalado a **4K**, **1080p**, **720p** o mantener resolución original
+- Recorte **automático** (detección de barras negras) o **manual**
+- Copia de pistas de **audio** y **subtítulos**
+
+---
+
+## 📝 Notas
+
+- El script está optimizado para **Windows**, pero puede funcionar en otros sistemas (sin efectos visuales/sonoros).
+- El archivo de salida se genera junto al original, con sufijos descriptivos para fácil identificación.
+- El procesamiento es interactivo y seguro: puedes cancelar en cualquier momento.
+
+---
+
+## 👨‍💻 Autor
+
+**Gilberto Nava Marcos**  
 **Versión:** 3.2 estable
+
+---
+
+¡Disfruta de tus videos comprimidos con la mejor calidad y el mínimo esfuerzo!
