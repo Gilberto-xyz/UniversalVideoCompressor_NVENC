@@ -368,7 +368,7 @@ def build_ffmpeg_command(input_file, output_file, params):
         "-preset", "p5",
         "-tune", "hq",
         "-profile:v", "main10", "-pix_fmt", "p010le",
-        "-rc:v", "vbr",           # modo base (cambio aquí)
+        "-rc:v", "vbr_hq",        # mejor calidad con tamaño similar
         "-multipass", "fullres",  # 2-pass interno
         "-bf", "4",
         "-b_ref_mode", "middle",
@@ -385,7 +385,8 @@ def build_ffmpeg_command(input_file, output_file, params):
         cmd += ["-bufsize", params["bufsize"]]
 
     # AQ y lookahead
-    cmd += ["-spatial-aq", "1", "-aq-strength", "8", "-temporal-aq", "1", "-rc-lookahead", "32"]
+    # Ajustes de AQ más altos para reducir el pixelado sin aumentar mucho el tamaño
+    cmd += ["-spatial-aq", "1", "-aq-strength", "12", "-temporal-aq", "1", "-rc-lookahead", "64"]
 
     # Filtros (crop/scale)
     filters = []
@@ -507,33 +508,33 @@ def main():
     # Lógica de opciones basada en resolución
     if is_uhd_ish: # Si es 4K o cercano
         options = [
-            ("BDRip Pesado (Mantener ~4K, alta calidad)", {"cq": "22", "bitrate": "14M", "maxrate": "17.5M", "bufsize": "24M", "scale": None, "suffix": "_BDRip_Pesado_4K.mkv"}),
-            ("BDRip Ligero (Mantener ~4K, comp. alta)", {"cq": "26", "bitrate": "8M", "maxrate": "10M", "bufsize": "12M", "scale": None, "suffix": "_BDRip_Ligero_4K.mkv"}),
+            ("BDRip Pesado (Mantener ~4K, alta calidad)", {"cq": "21", "bitrate": "14M", "maxrate": "17.5M", "bufsize": "24M", "scale": None, "suffix": "_BDRip_Pesado_4K.mkv"}),
+            ("BDRip Ligero (Mantener ~4K, comp. alta)", {"cq": "24", "bitrate": "10M", "maxrate": "12M", "bufsize": "16M", "scale": None, "suffix": "_BDRip_Ligero_4K.mkv"}),
             ("Downscale a 1080p (alta calidad)", {"cq": "22", "bitrate": "8M", "maxrate": "10M", "bufsize": "12M", "scale": "1920:-2", "suffix": "_BDRip_1080p.mkv"}),
-            ("Downscale a 1080p (ligero)", {"cq": "26", "bitrate": "5M", "maxrate": "6M", "bufsize": "8M", "scale": "1920:-2", "suffix": "_Ligero_1080p.mkv"}),
+            ("Downscale a 1080p (ligero)", {"cq": "24", "bitrate": "6M", "maxrate": "7.5M", "bufsize": "10M", "scale": "1920:-2", "suffix": "_Ligero_1080p.mkv"}),
         ]
     elif is_fhd_ish: # Si es 1080p o cercano
         options = [
-            ("Upscale a ~4K (Pesado)", {"cq": "22", "bitrate": "14M", "maxrate": "17.5M", "bufsize": "24M", "scale": "3840:-2", "suffix": "_Upscale_Pesado_4K.mkv"}),
-            ("Upscale a ~4K (Ligero)", {"cq": "26", "bitrate": "8M", "maxrate": "10M", "bufsize": "12M", "scale": "3840:-2", "suffix": "_Upscale_Ligero_4K.mkv"}),
-            ("Mantener ~1080p (Pesado)", {"cq": "18", "bitrate": "14M", "maxrate": "17.5M", "bufsize": "24M", "scale": None, "suffix": "_Mantener_1080p_Pesado.mkv"}),
-            ("Mantener ~1080p (Ligero)", {"cq": "26", "bitrate": "5M", "maxrate": "6M", "bufsize": "8M", "scale": None, "suffix": "_Mantener_1080p_Ligero.mkv"}),
+            ("Upscale a ~4K (Pesado)", {"cq": "21", "bitrate": "14M", "maxrate": "17.5M", "bufsize": "24M", "scale": "3840:-2", "suffix": "_Upscale_Pesado_4K.mkv"}),
+            ("Upscale a ~4K (Ligero)", {"cq": "24", "bitrate": "10M", "maxrate": "12M", "bufsize": "16M", "scale": "3840:-2", "suffix": "_Upscale_Ligero_4K.mkv"}),
+            ("Mantener ~1080p (Pesado)", {"cq": "17", "bitrate": "14M", "maxrate": "17.5M", "bufsize": "24M", "scale": None, "suffix": "_Mantener_1080p_Pesado.mkv"}),
+            ("Mantener ~1080p (Ligero)", {"cq": "24", "bitrate": "6M", "maxrate": "7M", "bufsize": "9M", "scale": None, "suffix": "_Mantener_1080p_Ligero.mkv"}),
             ("Downscale a 720p", {"cq": "24", "bitrate": "4M", "maxrate": "5M", "bufsize": "6M", "scale": "1280:-2", "suffix": "_720p.mkv"}),
         ]
     elif is_hd_ish: # Si es 720p o cercano
          options = [
-            ("Upscale a ~1080p (Pesado)", {"cq": "22", "bitrate": "8M", "maxrate": "10M", "bufsize": "12M", "scale": "1920:-2", "suffix": "_Up1080p_Pesado.mkv"}),
-            ("Upscale a ~1080p (Ligero)", {"cq": "26", "bitrate": "5M", "maxrate": "6M", "bufsize": "8M", "scale": "1920:-2", "suffix": "_Up1080p_Ligero.mkv"}),
-            ("Upscale a ~4K (Pesado, no siempre ideal)", {"cq": "22", "bitrate": "14M", "maxrate": "17.5M", "bufsize": "24M", "scale": "3840:-2", "suffix": "_Up4K_Pesado.mkv"}),
-            ("Upscale a ~4K (Ligero)", {"cq": "26", "bitrate": "8M", "maxrate": "10M", "bufsize": "12M", "scale": "3840:-2", "suffix": "_Up4K_Ligero.mkv"}),
-            ("Mantener ~720p (Pesado)", {"cq": "22", "bitrate": "5M", "maxrate": "6M", "bufsize": "8M", "scale": None, "suffix": "_Mantener_720p_Pesado.mkv"}),
-            ("Mantener ~720p (Ligero)", {"cq": "26", "bitrate": "3M", "maxrate": "4M", "bufsize": "6M", "scale": None, "suffix": "_Mantener_720p_Ligero.mkv"}),
+            ("Upscale a ~1080p (Pesado)", {"cq": "21", "bitrate": "8M", "maxrate": "10M", "bufsize": "12M", "scale": "1920:-2", "suffix": "_Up1080p_Pesado.mkv"}),
+            ("Upscale a ~1080p (Ligero)", {"cq": "24", "bitrate": "6M", "maxrate": "7M", "bufsize": "9M", "scale": "1920:-2", "suffix": "_Up1080p_Ligero.mkv"}),
+            ("Upscale a ~4K (Pesado, no siempre ideal)", {"cq": "21", "bitrate": "14M", "maxrate": "17.5M", "bufsize": "24M", "scale": "3840:-2", "suffix": "_Up4K_Pesado.mkv"}),
+            ("Upscale a ~4K (Ligero)", {"cq": "24", "bitrate": "10M", "maxrate": "12M", "bufsize": "16M", "scale": "3840:-2", "suffix": "_Up4K_Ligero.mkv"}),
+            ("Mantener ~720p (Pesado)", {"cq": "21", "bitrate": "5M", "maxrate": "6M", "bufsize": "8M", "scale": None, "suffix": "_Mantener_720p_Pesado.mkv"}),
+            ("Mantener ~720p (Ligero)", {"cq": "24", "bitrate": "4M", "maxrate": "5M", "bufsize": "7M", "scale": None, "suffix": "_Mantener_720p_Ligero.mkv"}),
         ]
     else: # Resoluciones menores o no estándar
         options = [
-            ("Mantener resolución original (comp. media)", {"cq": "24", "bitrate": "4M", "maxrate": "5M", "bufsize": "6M", "scale": None, "suffix": "_Original_Medio.mkv"}),
-            ("Escalar a 1080p (calidad media)", {"cq": "24", "bitrate": "6M", "maxrate": "8M", "bufsize": "10M", "scale": "1920:-2", "suffix": "_1080p_Medio.mkv"}),
-            ("Escalar a 720p (calidad media)", {"cq": "24", "bitrate": "4M", "maxrate": "5M", "bufsize": "6M", "scale": "1280:-2", "suffix": "_720p_Medio.mkv"}),
+            ("Mantener resolución original (comp. media)", {"cq": "23", "bitrate": "4.5M", "maxrate": "5.5M", "bufsize": "7M", "scale": None, "suffix": "_Original_Medio.mkv"}),
+            ("Escalar a 1080p (calidad media)", {"cq": "23", "bitrate": "6.5M", "maxrate": "8.5M", "bufsize": "11M", "scale": "1920:-2", "suffix": "_1080p_Medio.mkv"}),
+            ("Escalar a 720p (calidad media)", {"cq": "23", "bitrate": "4.5M", "maxrate": "5.5M", "bufsize": "7M", "scale": "1280:-2", "suffix": "_720p_Medio.mkv"}),
         ]
 
     for i, (desc, _) in enumerate(options):
