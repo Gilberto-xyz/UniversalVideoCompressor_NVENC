@@ -15,6 +15,7 @@
 - ⚡ **Aceleración por GPU (NVENC)** para decodificación y codificación.
 - 🧑‍💻 **Interfaz interactiva** en consola con menús, confirmaciones y paneles enriquecidos (Rich).
 - 🎉 **Efectos visuales y sonoros** al finalizar (solo en Windows).
+- 🖼️ **Calidad mejorada** en todas las opciones usando codificación `vbr_hq` y ajuste de AQ.
 
 ---
 
@@ -69,7 +70,7 @@ python UniversalVideoCompressor_NVENC.py
 ## 👨‍💻 Autor
 
 **Gilberto Nava Marcos**  
-**Versión:** 3.2 estable
+**Versión:** 3.3 estable
 
 ---
 
