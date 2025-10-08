@@ -760,6 +760,32 @@ def main():
     }
     suffix = selected_option_params.get("suffix", "_procesado.mkv")
 
+    processing_method = "auto"
+    if dv_info:
+        profile = dv_info.get("profile", "desconocido")
+        console.print(Panel(
+            f"[bold magenta]Dolby Vision detectado (perfil {profile}).[/bold magenta]\n"
+            "[white]Elige el metodo de procesamiento para generar distintas calidades.[/white]",
+            expand=False,
+            border_style="magenta",
+        ))
+        method_options = [
+            ("Auto (DV 8.1 por CPU si aplica)", "auto"),
+            ("Forzar DV 8.1 (CPU con RPU)", "force_dv"),
+            ("Forzar NVENC HDR10 (GPU)", "force_nvenc"),
+        ]
+        for idx, (desc, _) in enumerate(method_options, start=1):
+            console.print(f"[bold cyan]{idx})[/bold cyan] {desc}")
+        method_choice = IntPrompt.ask(
+            "Selecciona el metodo",
+            choices=[str(i) for i in range(1, len(method_options) + 1)],
+            show_choices=False,
+            default="1",
+        )
+        processing_method = method_options[int(method_choice) - 1][1]
+    else:
+        processing_method = "force_nvenc"
+
     base_name, _ = os.path.splitext(input_path)
     output_file = base_name + suffix
     
@@ -769,11 +795,17 @@ def main():
         console.print("[yellow]Operación cancelada por el usuario.[/yellow]")
         sys.exit(0)
 
-    if dv_info:
-        process_dolby_vision(input_path, output_file, final_params, dv_info)
-    else:
+    if processing_method == "force_dv":
+        process_dolby_vision(input_path, output_file, final_params, dv_info or {})
+    elif processing_method == "force_nvenc":
         cmd = build_ffmpeg_command(input_path, output_file, final_params)
         run_ffmpeg(cmd, os.path.basename(input_path))
+    else:
+        if dv_info:
+            process_dolby_vision(input_path, output_file, final_params, dv_info)
+        else:
+            cmd = build_ffmpeg_command(input_path, output_file, final_params)
+            run_ffmpeg(cmd, os.path.basename(input_path))
 
 if __name__ == "__main__":
     try:
