@@ -18,6 +18,8 @@ import os
 import sys
 import json
 import subprocess
+import shutil
+import tempfile
 from PIL import Image
 import numpy as np
 import glob
@@ -33,6 +35,25 @@ from rich.live import Live # Necesario para los fuegos artificiales
 # --- FIN RICH ---
 
 console = Console()
+
+def print_pretty_command(command: list[str], header: str = "Comando"):
+    """Pretty-print a CLI command separating options for readability."""
+    cmd_str_display = []
+    temp_str = ""
+    for idx, part in enumerate(command):
+        if part.startswith("-") and temp_str:
+            cmd_str_display.append(temp_str.strip())
+            temp_str = part + " "
+        elif not part.startswith("-"):
+            temp_str += f"'{part}' " if " " in part else part + " "
+        else:
+            temp_str = part + " "
+        if idx == len(command) - 1 and temp_str:
+            cmd_str_display.append(temp_str.strip())
+    console.print(f"[bold]{header}:[/bold]")
+    for segment in cmd_str_display:
+        console.print(f"  [dim]{segment}[/dim]")
+    console.print("-" * 30)
 
 # —————— SONIDO DE NOTIFICACIÓN (SOLO WINDOWS): SONIDO DE EXPERIENCIA DE MINECRAFT ——————
 if sys.platform == "win32":
@@ -173,6 +194,122 @@ def get_video_color_info(input_file):
         )
     except Exception as e:
         return ("", "", "")
+
+def determine_color_params(color_prim, color_trc, color_space):
+    """Return FFmpeg color parameters and individual values."""
+    def normalize(val):
+        return (val or "").strip().lower()
+
+    color_prim_n = normalize(color_prim)
+    color_trc_n = normalize(color_trc)
+    color_space_n = normalize(color_space)
+
+    if ("2020" in color_prim_n or "2020" in color_space_n) and ("2084" in color_trc_n or "b67" in color_trc_n):
+        params = [
+            "-color_primaries", color_prim or "bt2020",
+            "-color_trc", color_trc or "smpte2084",
+            "-colorspace", color_space or "bt2020nc",
+        ]
+    elif "709" in color_prim_n or "709" in color_space_n:
+        params = [
+            "-color_primaries", color_prim or "bt709",
+            "-color_trc", color_trc or "bt709",
+            "-colorspace", color_space or "bt709",
+        ]
+    elif "601" in color_prim_n or "601" in color_space_n:
+        params = [
+            "-color_primaries", color_prim or "bt601",
+            "-color_trc", color_trc or "bt601",
+            "-colorspace", color_space or "bt601",
+        ]
+    else:
+        console.print("[yellow]Advertencia: No se pudo detectar el espacio de color. Se usará BT.709 por defecto.[/yellow]")
+        params = [
+            "-color_primaries", "bt709",
+            "-color_trc", "bt709",
+            "-colorspace", "bt709",
+        ]
+
+    values = {
+        "primaries": params[1],
+        "transfer": params[3],
+        "matrix": params[5],
+    }
+    return params, values
+
+def detect_dolby_vision(input_file):
+    """Detect Dolby Vision metadata (profile/level) using ffprobe."""
+    probe_cmd = [
+        "ffprobe", "-v", "quiet", "-select_streams", "v:0",
+        "-print_format", "json", "-show_streams",
+        input_file,
+    ]
+    try:
+        result = subprocess.run(
+            probe_cmd,
+            capture_output=True,
+            text=True,
+            check=True,
+            encoding="utf-8",
+            errors="ignore",
+        )
+        data = json.loads(result.stdout or "{}")
+        streams = data.get("streams") or []
+        if not streams:
+            return None
+        stream = streams[0]
+        side_data = stream.get("side_data_list") or []
+
+        def try_int(value):
+            try:
+                return int(value)
+            except (TypeError, ValueError):
+                return value
+
+        dv_profile = stream.get("dv_profile")
+        dv_level = stream.get("dv_level")
+        for entry in side_data:
+            if dv_profile is None and entry.get("dv_profile") is not None:
+                dv_profile = entry.get("dv_profile")
+            if dv_level is None and entry.get("dv_level") is not None:
+                dv_level = entry.get("dv_level")
+
+        has_dv_side_data = any(
+            "dolby" in (entry.get("side_data_type", "") or "").lower()
+            or "dovi" in (entry.get("side_data_type", "") or "").lower()
+            for entry in side_data
+        )
+        if dv_profile is None and not has_dv_side_data:
+            return None
+
+        info = {
+            "profile": try_int(dv_profile),
+            "level": try_int(dv_level),
+            "codec": stream.get("codec_name"),
+            "has_side_data": has_dv_side_data,
+        }
+
+        for key in (
+            "dv_version_major",
+            "dv_version_minor",
+            "rpu_present_flag",
+            "el_present_flag",
+            "bl_present_flag",
+            "dv_bl_signal_compatibility_id",
+            "dv_md_compression",
+        ):
+            for entry in side_data:
+                if key in entry:
+                    info[key] = entry.get(key)
+                    break
+
+        if side_data:
+            info["side_data_type"] = side_data[0].get("side_data_type")
+
+        return info
+    except (subprocess.CalledProcessError, FileNotFoundError, json.JSONDecodeError):
+        return None
+
 
 # ---------------------------------------------------------
 # 2) FUNCIÓN PARA GENERAR SCREENSHOT
@@ -322,39 +459,7 @@ def ask_crop_strategy(input_file, orig_width, orig_height):
 def build_ffmpeg_command(input_file, output_file, params):
     # Detectar espacio de color
     color_prim, color_trc, color_space = get_video_color_info(input_file)
-
-    def normalize(val):
-        return (val or "").strip().lower()
-
-    color_prim_n = normalize(color_prim)
-    color_trc_n = normalize(color_trc)
-    color_space_n = normalize(color_space)
-
-    if ("2020" in color_prim_n or "2020" in color_space_n) and ("2084" in color_trc_n or "b67" in color_trc_n):
-        color_params = [
-            "-color_primaries", color_prim or "bt2020",
-            "-color_trc", color_trc or "smpte2084",
-            "-colorspace", color_space or "bt2020nc",
-        ]
-    elif "709" in color_prim_n or "709" in color_space_n:
-        color_params = [
-            "-color_primaries", color_prim or "bt709",
-            "-color_trc", color_trc or "bt709",
-            "-colorspace", color_space or "bt709",
-        ]
-    elif "601" in color_prim_n or "601" in color_space_n:
-        color_params = [
-            "-color_primaries", color_prim or "bt601",
-            "-color_trc", color_trc or "bt601",
-            "-colorspace", color_space or "bt601",
-        ]
-    else:
-        console.print("[yellow]Advertencia: No se pudo detectar el espacio de color. Se usará BT.709 por defecto.[/yellow]")
-        color_params = [
-            "-color_primaries", "bt709",
-            "-color_trc", "bt709",
-            "-colorspace", "bt709",
-        ]
+    color_params, _ = determine_color_params(color_prim, color_trc, color_space)
 
     # Comando base
     cmd = [
@@ -405,26 +510,7 @@ def build_ffmpeg_command(input_file, output_file, params):
 
 def run_ffmpeg(command, input_file_basename):
     console.print(Panel(f"[bold yellow]🚀 Ejecutando FFmpeg para '{input_file_basename}' 🚀[/bold yellow]", expand=False, border_style="yellow"))
-    # console.print(" ".join(command)) # Descomentar para ver el comando completo
-    # Imprimir una versión más legible del comando
-    cmd_str_display = []
-    temp_str = ""
-    for i, part in enumerate(command):
-        if part.startswith("-") and temp_str: # Si es una opción y hay algo acumulado
-            cmd_str_display.append(temp_str.strip())
-            temp_str = part + " "
-        elif not part.startswith("-"): # Si es un valor
-            temp_str += f"'{part}' " if " " in part else part + " "
-        else: # Si es una opción y nada acumulado
-            temp_str = part + " "
-
-        if i == len(command) -1 and temp_str: # Último elemento
-             cmd_str_display.append(temp_str.strip())
-
-    console.print("[bold]Comando FFmpeg:[/bold]")
-    for part_display in cmd_str_display:
-        console.print(f"  [dim]{part_display}[/dim]")
-    console.print("-" * 30)
+    print_pretty_command(command, header="Comando FFmpeg")
 
 
     try:
@@ -454,6 +540,118 @@ def run_ffmpeg(command, input_file_basename):
         console.print(f"[bold red]Error inesperado al ejecutar FFmpeg:[/bold red] {e}")
         sys.exit(1)
 
+
+def process_dolby_vision(input_file, output_file, params, dv_info):
+    profile = dv_info.get("profile")
+    profile_text = str(profile) if profile is not None else "desconocido"
+    console.print(Panel(
+        f"[bold magenta]Dolby Vision detectado (perfil {profile_text}).[/bold magenta]\n"
+        "[white]Se utilizara codificacion por CPU (libx265) con inyeccion de RPU perfil 8.1.[/white]",
+        expand=False,
+        border_style="magenta",
+    ))
+
+    dovi_tool_path = shutil.which("dovi_tool")
+    if not dovi_tool_path:
+        console.print("[bold red]Se requiere 'dovi_tool' en el PATH para procesar Dolby Vision.[/bold red]")
+        sys.exit(1)
+
+    with tempfile.TemporaryDirectory(prefix="uvc_dv_") as tmp_dir:
+        rpu_path = os.path.join(tmp_dir, "source.rpu.bin")
+
+        console.print(Panel(
+            "[bold cyan]Extrayendo metadatos Dolby Vision (RPU) con dovi_tool...[/bold cyan]",
+            expand=False,
+            border_style="cyan",
+        ))
+        extract_cmd = [dovi_tool_path]
+        if isinstance(profile, int) and profile in (5, 7):
+            console.print("[magenta]Convirtiendo RPU a perfil 8.1 (modo -m 2).[/magenta]")
+            extract_cmd += ["-m", "2"]
+        extract_cmd += ["extract-rpu", "-i", input_file, "-o", rpu_path]
+        print_pretty_command(extract_cmd, header="Comando dovi_tool")
+        try:
+            subprocess.run(extract_cmd, check=True)
+        except FileNotFoundError:
+            console.print("[bold red]No se encontro 'dovi_tool'.[/bold red]")
+            sys.exit(1)
+        except subprocess.CalledProcessError as exc:
+            console.print(Panel(
+                f"[bold red]Error al extraer RPU con dovi_tool:[/bold red] {exc}",
+                expand=False,
+                border_style="red",
+            ))
+            sys.exit(1)
+
+        color_prim, color_trc, color_space = get_video_color_info(input_file)
+        color_params, color_values = determine_color_params(color_prim, color_trc, color_space)
+
+        filters = []
+        if params.get("crop"):
+            cw, ch, cx, cy = params["crop"]
+            filters.append(f"crop={cw}:{ch}:{cx}:{cy}")
+        if params.get("scale"):
+            filters.append(f"scale={params['scale']}")
+            filters.append("format=yuv420p10le")
+        filter_chain = ",".join(filters) if filters else None
+
+        console.print(Panel(
+            "[bold magenta]Codificando base layer HDR10 con libx265...[/bold magenta]",
+            expand=False,
+            border_style="magenta",
+        ))
+
+        ffmpeg_cmd = [
+            "ffmpeg", "-hide_banner", "-loglevel", "error", "-stats",
+            "-i", input_file,
+            "-map", "0:v:0", "-map", "0:a?", "-map", "0:s?",
+            "-c:v", "libx265",
+            "-pix_fmt", "yuv420p10le",
+            "-preset", "slow",
+            "-profile:v", "main10",
+            "-tag:v", "hvc1",
+        ]
+
+        if params.get("cq"):
+            ffmpeg_cmd += ["-crf", params["cq"]]
+        if params.get("bitrate"):
+            ffmpeg_cmd += ["-b:v", params["bitrate"]]
+        if params.get("maxrate"):
+            ffmpeg_cmd += ["-maxrate", params["maxrate"]]
+        if params.get("bufsize"):
+            ffmpeg_cmd += ["-bufsize", params["bufsize"]]
+        if filter_chain:
+            ffmpeg_cmd += ["-vf", filter_chain]
+
+        ffmpeg_cmd += color_params
+
+        x265_params = [
+            "repeat-headers=1",
+            "aud=1",
+            "hrd=1",
+            "hdr10-opt=1",
+            "chromaloc=2",
+            "open-gop=0",
+            "keyint=240",
+            "min-keyint=1",
+            f"dolby-vision-profile=8.1",
+            f"dolby-vision-rpu={rpu_path.replace(os.sep, '/')}",
+        ]
+
+        primaries = color_values.get("primaries")
+        transfer = color_values.get("transfer")
+        matrix = color_values.get("matrix")
+        if primaries:
+            x265_params.append(f"colorprim={primaries}")
+        if transfer:
+            x265_params.append(f"transfer={transfer}")
+        if matrix:
+            x265_params.append(f"colormatrix={matrix}")
+
+        ffmpeg_cmd += ["-x265-params", ":".join(x265_params)]
+        ffmpeg_cmd += ["-c:a", "copy", "-c:s", "copy", output_file]
+
+        run_ffmpeg(ffmpeg_cmd, os.path.basename(input_file))
 
 # ---------------------------------------------------------
 # 6) MENÚ PRINCIPAL UNIFICADO
@@ -494,6 +692,7 @@ def main():
 
 
     orig_w, orig_h = get_video_resolution(input_path)
+    dv_info = detect_dolby_vision(input_path)
     console.print(Panel(f"📹 [bold]Video Original:[/bold] [magenta]{os.path.basename(input_path)}[/magenta] ([yellow]{orig_w}x{orig_h}[/yellow])", expand=False, border_style="green"))
 
     crop_data = ask_crop_strategy(input_path, orig_w, orig_h)
@@ -570,8 +769,11 @@ def main():
         console.print("[yellow]Operación cancelada por el usuario.[/yellow]")
         sys.exit(0)
 
-    cmd = build_ffmpeg_command(input_path, output_file, final_params)
-    run_ffmpeg(cmd, os.path.basename(input_path))
+    if dv_info:
+        process_dolby_vision(input_path, output_file, final_params, dv_info)
+    else:
+        cmd = build_ffmpeg_command(input_path, output_file, final_params)
+        run_ffmpeg(cmd, os.path.basename(input_path))
 
 if __name__ == "__main__":
     try:
