@@ -20,6 +20,7 @@ import json
 import subprocess
 import shutil
 import tempfile
+import math
 from PIL import Image
 import numpy as np
 import glob
@@ -340,6 +341,7 @@ def detect_non_black_dimensions_full(image_path, threshold=16):
         console.print(f"[red]Error: No se encontró el archivo de imagen para recorte:[/red] {image_path}")
         return None # O manejar de otra forma
     image_np = np.array(image)
+    img_height, img_width = image_np.shape
     mask = image_np > threshold
 
     non_black_rows = np.any(mask, axis=1)
@@ -356,6 +358,17 @@ def detect_non_black_dimensions_full(image_path, threshold=16):
 
     width = right - left
     height = bottom - top
+
+    # Si la zona detectada es demasiado pequeña, probablemente es una escena muy oscura.
+    total_pixels = img_width * img_height if img_width and img_height else 1
+    content_ratio = (width * height) / total_pixels
+    min_content_ratio = 0.3
+    if content_ratio < min_content_ratio:
+        console.print(
+            f"[yellow]Se descartó el recorte de {os.path.basename(image_path)} "
+            f"porque solo cubre el {content_ratio:.1%} del cuadro (posible escena demasiado oscura).[/yellow]"
+        )
+        return None
 
     # console.print(f"[dim]Recorte detectado: w={width}, h={height}, l={left}, t={top}, r={right}, b={bottom}[/dim]")
     return (width, height, left, top)
@@ -403,15 +416,38 @@ def ask_crop_strategy(input_file, orig_width, orig_height):
                 if os.path.exists(f_path): os.remove(f_path)
             return None
 
-        # Intersección (recorte más conservador)
-        min_left = max(c[2] for c in crop_results if c)
-        min_top = max(c[3] for c in crop_results if c)
-        # Para right y bottom, calculamos c[2]+c[0] (left+width) y c[3]+c[1] (top+height)
-        max_right = min(c[2] + c[0] for c in crop_results if c)
-        max_bottom = min(c[3] + c[1] for c in crop_results if c)
+        def consensus_margin(values, axis_name, tolerance_px=4, min_ratio=0.6):
+            """Devuelve un margen si la mayoría de capturas coincide, o 0 en caso contrario."""
+            cleaned = [max(0, int(round(v))) for v in values]
+            positives = [v for v in cleaned if v > tolerance_px]
+            if not positives:
+                return 0
+            required = max(1, math.ceil(len(cleaned) * min_ratio))
+            if len(positives) < required:
+                console.print(
+                    f"[dim yellow]Recorte {axis_name} ignorado: solo {len(positives)}/{len(cleaned)} capturas lo detectaron con claridad.[/dim yellow]"
+                )
+                return 0
+            return int(np.median(positives))
 
-        final_width = max_right - min_left
-        final_height = max_bottom - min_top
+        left_candidates = [c[2] for c in crop_results]
+        right_candidates = [orig_width - (c[2] + c[0]) for c in crop_results]
+        top_candidates = [c[3] for c in crop_results]
+        bottom_candidates = [orig_height - (c[3] + c[1]) for c in crop_results]
+
+        crop_left = consensus_margin(left_candidates, "izquierdo")
+        crop_right = consensus_margin(right_candidates, "derecho")
+        crop_top = consensus_margin(top_candidates, "superior")
+        crop_bottom = consensus_margin(bottom_candidates, "inferior")
+
+        final_width = orig_width - (crop_left + crop_right)
+        final_height = orig_height - (crop_top + crop_bottom)
+
+        if all(v == 0 for v in [crop_left, crop_right, crop_top, crop_bottom]):
+            console.print("[yellow]Las muestras no coincidieron en barras negras consistentes. Se mantendrá sin recorte.[/yellow]")
+            for f_path in temp_files:
+                if os.path.exists(f_path): os.remove(f_path)
+            return None
 
         for f_path in temp_files:
             if os.path.exists(f_path): os.remove(f_path)
@@ -420,9 +456,9 @@ def ask_crop_strategy(input_file, orig_width, orig_height):
             console.print("[yellow]El recorte detectado no es válido o no es necesario (la imagen ya ocupa todo el cuadro). Se mantendrá sin recorte.[/yellow]")
             return None
 
-        console.print(f"[green]Recorte automático detectado:[/green] Ancho=[bold]{final_width}[/bold], Alto=[bold]{final_height}[/bold], X=[bold]{min_left}[/bold], Y=[bold]{min_top}[/bold]")
-        if Confirm.ask(f"¿Aplicar este recorte: {final_width}x{final_height} en ({min_left},{min_top})?", default=True):
-            return (final_width, final_height, min_left, min_top)
+        console.print(f"[green]Recorte automático detectado:[/green] Ancho=[bold]{final_width}[/bold], Alto=[bold]{final_height}[/bold], X=[bold]{crop_left}[/bold], Y=[bold]{crop_top}[/bold]")
+        if Confirm.ask(f"¿Aplicar este recorte: {final_width}x{final_height} en ({crop_left},{crop_top})?", default=True):
+            return (final_width, final_height, crop_left, crop_top)
         else:
             console.print("[yellow]Recorte automático descartado por el usuario.[/yellow]")
             return None
