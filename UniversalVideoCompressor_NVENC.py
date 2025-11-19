@@ -54,19 +54,30 @@ def print_pretty_command(command: list[str], header: str = "Comando"):
     console.print(f"[bold]{header}:[/bold]")
     for segment in cmd_str_display:
         console.print(f"  [dim]{segment}[/dim]")
-    console.print("-" * 30)
-
 # —————— SONIDO DE NOTIFICACIÓN (SOLO WINDOWS): SONIDO DE EXPERIENCIA DE MINECRAFT ——————
 if sys.platform == "win32":
     import winsound
 
     def play_minecraft_xp_sound():
         """Reproduce una melodía breve inspirada en el sonido de ganar experiencia."""
+        # Intentar reproducir archivo WAV si existe
+        wav_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "minecraft_levelup.wav")
+        if os.path.isfile(wav_path):
+            try:
+                winsound.PlaySound(wav_path, winsound.SND_FILENAME)
+                return
+            except Exception:
+                pass # Fallback a beeps si falla
+
+        # Secuencia sintética mejorada (Arpegio Fa# Mayor: F#4, A#4, C#5, F#5, A#5, C#6)
+        # Frecuencias aproximadas
         tones = [
-            (1760, 70),  # A6
-            (2093, 70),  # C7
-            (2349, 70),  # D7
-            (2637, 140)  # E7
+            (740, 150),   # F#4
+            (932, 150),   # A#4
+            (1109, 150),  # C#5
+            (1480, 150),  # F#5
+            (1865, 150),  # A#5
+            (2217, 400)   # C#6 (más largo al final)
         ]
         for freq, duration_ms in tones:
             winsound.Beep(freq, duration_ms)
