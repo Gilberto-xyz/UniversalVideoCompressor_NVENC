@@ -574,7 +574,6 @@ def run_ffmpeg(command, input_file_basename):
             console.print(Panel("✅ [bold green]Compresión completada con éxito.[/bold green] ✅", expand=False, border_style="green"))
             if sys.platform == "win32":
                 play_minecraft_xp_sound()
-                show_fireworks_animation()
         else:
             console.print(Panel(f"❌ [bold red]Error al ejecutar FFmpeg (código de salida: {process.returncode}).[/bold red] ❌", expand=False, border_style="red"))
             # stderr podría estar en process.stderr si se redirige por separado
