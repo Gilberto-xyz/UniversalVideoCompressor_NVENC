@@ -16,6 +16,7 @@ permitiendo escalas desde 720p a 1080p o 4K, y de 1080p a 4K, etc.
 
 import os
 import sys
+import argparse
 import json
 import subprocess
 import shutil
@@ -54,6 +55,23 @@ def print_pretty_command(command: list[str], header: str = "Comando"):
     console.print(f"[bold]{header}:[/bold]")
     for segment in cmd_str_display:
         console.print(f"  [dim]{segment}[/dim]")
+
+def parse_cli_args():
+    parser = argparse.ArgumentParser(
+        description="Comprime y escala videos usando NVENC con un flujo interactivo."
+    )
+    parser.add_argument(
+        "input_path",
+        nargs="?",
+        help="Ruta de un archivo de video o de una carpeta con videos.",
+    )
+    parser.add_argument(
+        "-i",
+        "--input",
+        dest="input_path_flag",
+        help="Ruta de un archivo de video o de una carpeta con videos.",
+    )
+    return parser.parse_args()
 # —————— SONIDO DE NOTIFICACIÓN (SOLO WINDOWS): SONIDO DE EXPERIENCIA DE MINECRAFT ——————
 if sys.platform == "win32":
     import winsound
@@ -706,35 +724,72 @@ def main():
     console.print(Panel("[bold bright_blue]🎞️ Universal Video Processor HEVC NVENC 🎞️[/bold bright_blue]", expand=False, title_align="center", border_style="blue"))
 
     script_dir = os.path.dirname(os.path.abspath(__file__))
+    args = parse_cli_args()
     input_path = None
     exts = [".mkv", ".mp4", ".m2ts", ".ts", ".mov", ".avi", ".webm"] # Ampliado
 
-    console.print(f"[cyan]Buscando archivos de video en:[/cyan] [dim]{script_dir}[/dim]")
-    video_files_found = []
-    for root, _, files in os.walk(script_dir):
-        for f_name in files:
-            if any(f_name.lower().endswith(ext) for ext in exts):
-                video_files_found.append(os.path.join(root, f_name))
-    
-    if not video_files_found:
-        console.print("[bold red]No se encontró ningún archivo de video compatible en la carpeta del script ni en subcarpetas.[/bold red]")
-        sys.exit(1)
-    
-    if len(video_files_found) == 1:
-        input_path = video_files_found[0]
-        console.print(f"[green]Archivo de video encontrado automáticamente:[/green] [bold yellow]{os.path.basename(input_path)}[/bold yellow]")
-    else:
-        console.print("[bold yellow]Múltiples archivos de video encontrados. Por favor, selecciona uno:[/bold yellow]")
-        for i, vf in enumerate(video_files_found):
-            console.print(f"[cyan]{i+1})[/cyan] {os.path.basename(vf)} ([dim]{os.path.dirname(vf)}[/dim])")
+    cli_input = args.input_path_flag or args.input_path
+    if cli_input:
+        cli_input = os.path.abspath(cli_input)
+        if os.path.isdir(cli_input):
+            console.print(f"[cyan]Buscando archivos de video en la carpeta indicada:[/cyan] [dim]{cli_input}[/dim]")
+            video_files_found = []
+            for root, _, files in os.walk(cli_input):
+                for f_name in files:
+                    if any(f_name.lower().endswith(ext) for ext in exts):
+                        video_files_found.append(os.path.join(root, f_name))
+            if not video_files_found:
+                console.print("[bold red]No se encontró ningún archivo de video compatible en la carpeta indicada ni en subcarpetas.[/bold red]")
+                sys.exit(1)
+            if len(video_files_found) == 1:
+                input_path = video_files_found[0]
+                console.print(f"[green]Archivo de video encontrado automáticamente:[/green] [bold yellow]{os.path.basename(input_path)}[/bold yellow]")
+            else:
+                console.print("[bold yellow]Múltiples archivos de video encontrados. Por favor, selecciona uno:[/bold yellow]")
+                for i, vf in enumerate(video_files_found):
+                    console.print(f"[cyan]{i+1})[/cyan] {os.path.basename(vf)} ([dim]{os.path.dirname(vf)}[/dim])")
+
+                file_choice_num = IntPrompt.ask(
+                    "Ingresa el número del archivo a procesar",
+                    choices=[str(j+1) for j in range(len(video_files_found))],
+                    show_choices=False
+                )
+                input_path = video_files_found[file_choice_num - 1]
+                console.print(f"[green]Archivo seleccionado:[/green] [bold yellow]{os.path.basename(input_path)}[/bold yellow]")
+        else:
+            if not os.path.isfile(cli_input):
+                console.print(f"[bold red]No se encontró el archivo indicado:[/bold red] {cli_input}")
+                sys.exit(1)
+            input_path = cli_input
+            console.print(f"[green]Usando archivo indicado por parámetro:[/green] [bold yellow]{os.path.basename(input_path)}[/bold yellow]")
+
+    if input_path is None:
+        console.print(f"[cyan]Buscando archivos de video en:[/cyan] [dim]{script_dir}[/dim]")
+        video_files_found = []
+        for root, _, files in os.walk(script_dir):
+            for f_name in files:
+                if any(f_name.lower().endswith(ext) for ext in exts):
+                    video_files_found.append(os.path.join(root, f_name))
         
-        file_choice_num = IntPrompt.ask(
-            "Ingresa el número del archivo a procesar",
-            choices=[str(j+1) for j in range(len(video_files_found))],
-            show_choices=False # Los choices ya se mostraron
-        )
-        input_path = video_files_found[file_choice_num - 1]
-        console.print(f"[green]Archivo seleccionado:[/green] [bold yellow]{os.path.basename(input_path)}[/bold yellow]")
+        if not video_files_found:
+            console.print("[bold red]No se encontró ningún archivo de video compatible en la carpeta del script ni en subcarpetas.[/bold red]")
+            sys.exit(1)
+        
+        if len(video_files_found) == 1:
+            input_path = video_files_found[0]
+            console.print(f"[green]Archivo de video encontrado automáticamente:[/green] [bold yellow]{os.path.basename(input_path)}[/bold yellow]")
+        else:
+            console.print("[bold yellow]Múltiples archivos de video encontrados. Por favor, selecciona uno:[/bold yellow]")
+            for i, vf in enumerate(video_files_found):
+                console.print(f"[cyan]{i+1})[/cyan] {os.path.basename(vf)} ([dim]{os.path.dirname(vf)}[/dim])")
+            
+            file_choice_num = IntPrompt.ask(
+                "Ingresa el número del archivo a procesar",
+                choices=[str(j+1) for j in range(len(video_files_found))],
+                show_choices=False # Los choices ya se mostraron
+            )
+            input_path = video_files_found[file_choice_num - 1]
+            console.print(f"[green]Archivo seleccionado:[/green] [bold yellow]{os.path.basename(input_path)}[/bold yellow]")
 
 
     orig_w, orig_h = get_video_resolution(input_path)

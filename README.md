@@ -43,6 +43,18 @@ pip install rich pillow numpy
 python UniversalVideoCompressor_NVENC.py
 ```
 
+O bien puedes pasar una ruta explícita:
+
+```sh
+python UniversalVideoCompressor_NVENC.py "C:\ruta\al\video.mp4"
+```
+
+También acepta una carpeta y buscará videos dentro de ella y sus subcarpetas:
+
+```sh
+python UniversalVideoCompressor_NVENC.py "C:\ruta\a\mis_videos"
+```
+
 3. Sigue las instrucciones en pantalla para:
    - Seleccionar el video a procesar
    - Elegir el tipo de compresión/escalado
