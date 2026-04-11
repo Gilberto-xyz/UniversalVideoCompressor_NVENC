@@ -525,6 +525,9 @@ def build_ffmpeg_command(input_file, output_file, params):
     # Detectar espacio de color
     color_prim, color_trc, color_space = get_video_color_info(input_file)
     color_params, _ = determine_color_params(color_prim, color_trc, color_space)
+    preset = params.get("preset") or "p5"
+    aq_strength = params.get("aq_strength") or "12"
+    rc_lookahead = params.get("rc_lookahead") or "64"
 
     # Comando base
     cmd = [
@@ -535,7 +538,7 @@ def build_ffmpeg_command(input_file, output_file, params):
         "-map", "0:v:0", "-map", "0:a?", "-map", "0:s?",
         "-c:v", "hevc_nvenc",
         "-bsf:v", "filter_units=remove_types=62|63",  # <--- Añadido filtro de unidades
-        "-preset", "p5",
+        "-preset", preset,
         "-tune", "hq",
         "-profile:v", "main10", "-pix_fmt", "p010le",
         "-rc:v", "vbr_hq",        # mejor calidad con tamaño similar
@@ -556,7 +559,12 @@ def build_ffmpeg_command(input_file, output_file, params):
 
     # AQ y lookahead
     # Ajustes de AQ más altos para reducir el pixelado sin aumentar mucho el tamaño
-    cmd += ["-spatial-aq", "1", "-aq-strength", "12", "-temporal-aq", "1", "-rc-lookahead", "64"]
+    cmd += [
+        "-spatial-aq", "1",
+        "-aq-strength", aq_strength,
+        "-temporal-aq", "1",
+        "-rc-lookahead", rc_lookahead,
+    ]
 
     # Filtros (crop/scale)
     filters = []
@@ -818,7 +826,7 @@ def main():
             ("Upscale a ~4K (Pesado)", {"cq": "21", "bitrate": "14M", "maxrate": "17.5M", "bufsize": "24M", "scale": "3840:-2", "suffix": "_Upscale_Pesado_4K.mkv"}),
             ("Upscale a ~4K (Ligero)", {"cq": "24", "bitrate": "10M", "maxrate": "12M", "bufsize": "16M", "scale": "3840:-2", "suffix": "_Upscale_Ligero_4K.mkv"}),
             ("Mantener ~1080p (Pesado)", {"cq": "17", "bitrate": "14M", "maxrate": "17.5M", "bufsize": "24M", "scale": None, "suffix": "_Mantener_1080p_Pesado.mkv"}),
-            ("Mantener ~1080p (Ligero)", {"cq": "24", "bitrate": "6M", "maxrate": "7M", "bufsize": "9M", "scale": None, "suffix": "_Mantener_1080p_Ligero.mkv"}),
+            ("Mantener ~1080p (Ligero)", {"cq": "28", "bitrate": "3.2M", "maxrate": "4.2M", "bufsize": "6M", "preset": "p7", "scale": None, "suffix": "_Mantener_1080p_Ligero.mkv"}),
             ("Downscale a 720p", {"cq": "24", "bitrate": "4M", "maxrate": "5M", "bufsize": "6M", "scale": "1280:-2", "suffix": "_720p.mkv"}),
         ]
     elif is_hd_ish: # Si es 720p o cercano
@@ -857,7 +865,10 @@ def main():
         "cq": selected_option_params.get("cq"),
         "bitrate": selected_option_params.get("bitrate"),
         "maxrate": selected_option_params.get("maxrate"),
-        "bufsize": selected_option_params.get("bufsize")
+        "bufsize": selected_option_params.get("bufsize"),
+        "preset": selected_option_params.get("preset"),
+        "aq_strength": selected_option_params.get("aq_strength"),
+        "rc_lookahead": selected_option_params.get("rc_lookahead"),
     }
     suffix = selected_option_params.get("suffix", "_procesado.mkv")
 
