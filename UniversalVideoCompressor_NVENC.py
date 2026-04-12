@@ -826,7 +826,8 @@ def main():
             ("Upscale a ~4K (Pesado)", {"cq": "21", "bitrate": "14M", "maxrate": "17.5M", "bufsize": "24M", "scale": "3840:-2", "suffix": "_Upscale_Pesado_4K.mkv"}),
             ("Upscale a ~4K (Ligero)", {"cq": "24", "bitrate": "10M", "maxrate": "12M", "bufsize": "16M", "scale": "3840:-2", "suffix": "_Upscale_Ligero_4K.mkv"}),
             ("Mantener ~1080p (Pesado)", {"cq": "17", "bitrate": "14M", "maxrate": "17.5M", "bufsize": "24M", "scale": None, "suffix": "_Mantener_1080p_Pesado.mkv"}),
-            ("Mantener ~1080p (Ligero)", {"cq": "28", "bitrate": "3.2M", "maxrate": "4.2M", "bufsize": "6M", "preset": "p7", "scale": None, "suffix": "_Mantener_1080p_Ligero.mkv"}),
+            ("Mantener ~1080p (Ligero)", {"cq": "25", "bitrate": "4.8M", "maxrate": "6.2M", "bufsize": "9M", "preset": "p7", "scale": None, "suffix": "_Mantener_1080p_Ligero.mkv"}),
+            ("Mantener ~1080p (Ultra Ligero)", {"cq": "28", "bitrate": "3.2M", "maxrate": "4.2M", "bufsize": "6M", "preset": "p7", "scale": None, "suffix": "_Mantener_1080p_UltraLigero.mkv"}),
             ("Downscale a 720p", {"cq": "24", "bitrate": "4M", "maxrate": "5M", "bufsize": "6M", "scale": "1280:-2", "suffix": "_720p.mkv"}),
         ]
     elif is_hd_ish: # Si es 720p o cercano
